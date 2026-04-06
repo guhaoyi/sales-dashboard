@@ -74,20 +74,54 @@ async function fetchAllRecords(token, tableId, fieldNames) {
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+// --- 选项映射表 ---
+// 拉取所有表的字段定义，建立 optionId → name 的全局映射
+async function buildOptionMap(token) {
+  const optMap = {};
+  for (const t of TABLES) {
+    const url = `https://open.feishu.cn/open-apis/bitable/v1/apps/${APP_TOKEN}/tables/${t.id}/fields?page_size=100`;
+    const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+    const data = await resp.json();
+    if (data.code !== 0) continue;
+    const fields = data.data.items || [];
+    for (const f of fields) {
+      const opts = f.property && f.property.options;
+      if (Array.isArray(opts)) {
+        for (const o of opts) {
+          if (o.id && o.name) optMap[o.id] = o.name;
+        }
+      }
+    }
+    await sleep(200);
+  }
+  return optMap;
+}
+
 // --- 数据清洗 ---
-function cleanValue(val) {
+function cleanValue(val, optMap) {
   if (val === null || val === undefined) return null;
 
   // Formula / Lookup: {type: 2, value: [xxx]}
   if (typeof val === 'object' && !Array.isArray(val) && val.type !== undefined && val.value !== undefined) {
-    if (Array.isArray(val.value) && val.value.length === 1) return cleanValue(val.value[0]);
-    if (Array.isArray(val.value)) return val.value.map(cleanValue);
+    if (Array.isArray(val.value) && val.value.length === 1) return cleanValue(val.value[0], optMap);
+    if (Array.isArray(val.value)) return val.value.map(v => cleanValue(v, optMap));
     return val.value;
   }
 
   // Text array: [{text: "xxx", type: "text"}]
   if (Array.isArray(val) && val.length > 0 && val[0] && val[0].type === 'text') {
     return val.map(v => v.text).join('');
+  }
+
+  // Option ID array: ["optXXX", "optYYY"] — Lookup 字段返回选项ID
+  if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string' && val[0].startsWith('opt')) {
+    const names = val.map(id => optMap[id] || id);
+    return names.length === 1 ? names[0] : names.join(', ');
+  }
+
+  // Single option ID string
+  if (typeof val === 'string' && val.startsWith('opt') && optMap[val]) {
+    return optMap[val];
   }
 
   // Link record: {link_record_ids: [...]}
@@ -103,10 +137,10 @@ function cleanValue(val) {
   return val;
 }
 
-function cleanRecord(record) {
+function cleanRecord(record, optMap) {
   const cleaned = { _id: record.record_id };
   for (const [key, val] of Object.entries(record.fields || {})) {
-    cleaned[key] = cleanValue(val);
+    cleaned[key] = cleanValue(val, optMap);
   }
   return cleaned;
 }
@@ -123,15 +157,20 @@ async function main() {
   const token = await getToken();
   console.log('   ✓ Token 获取成功\n');
 
+  // 构建选项映射表
+  console.log('2. 构建选项ID→名称映射表...');
+  const optMap = await buildOptionMap(token);
+  console.log(`   ✓ 映射表构建完成 (${Object.keys(optMap).length}个选项)\n`);
+
   // 拉取各表数据
   const meta = { updatedAt: new Date().toISOString(), tables: {} };
 
   for (let i = 0; i < TABLES.length; i++) {
     const t = TABLES[i];
-    console.log(`2.${i + 1} 拉取「${t.name}」(${t.id})...`);
+    console.log(`3.${i + 1} 拉取「${t.name}」(${t.id})...`);
 
     const raw = await fetchAllRecords(token, t.id, t.fields);
-    const cleaned = raw.map(cleanRecord);
+    const cleaned = raw.map(r => cleanRecord(r, optMap));
 
     // 写入文件
     const filePath = path.join(DATA_DIR, t.file);

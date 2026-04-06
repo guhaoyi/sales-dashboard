@@ -97,16 +97,30 @@
 
   // === 筛选器 ===
   function populateFilters() {
-    const skus = new Set(), cities = new Set(), profiles = new Set();
+    const skus = new Set(), cities = new Set(), profiles = new Set(), months = new Set();
     DATA.conversion.forEach(d => {
       if (d._sku) skus.add(d._sku);
       if (d._city) cities.add(d._city);
       if (d._profile) profiles.add(d._profile);
+      if (d._month) months.add(d._month);
     });
 
     fillSelect('filterSku', skus, '全部SKU');
     fillSelect('filterCity', cities, '全部城市');
     fillSelect('filterProfile', profiles, '全部画像');
+
+    // 月份选择器
+    const sortedMonths = [...months].sort();
+    const monthLabels = sortedMonths.map(m => {
+      const p = m.match(/(\d{4})-(\d{1,2})/);
+      return p ? p[1] + '年' + parseInt(p[2]) + '月' : m;
+    });
+    const startEl = document.getElementById('filterStart');
+    const endEl = document.getElementById('filterEnd');
+    startEl.innerHTML = sortedMonths.map((m, i) => `<option value="${m}">${monthLabels[i]}</option>`).join('');
+    endEl.innerHTML = sortedMonths.map((m, i) => `<option value="${m}">${monthLabels[i]}</option>`).join('');
+    startEl.value = sortedMonths[0] || '2024-01';
+    endEl.value = sortedMonths[sortedMonths.length - 1] || '2026-04';
   }
 
   function fillSelect(id, values, allLabel) {
