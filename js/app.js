@@ -50,8 +50,48 @@
       d._directRate = num(d['【直转率】']);
       d._arpu = num(d['ARPU（剔除退款）']) || num(d['【ARPU】']);
       d._refundCount = num(d['退单数（开营前）']) || num(d['学霸-退单数（开营前）']);
+      d._refundGmv = num(d['退款GMV']);
       d._refundRate = num(d['退款率（开营前）']);
+      d._directRefund = num(d['直转退单数']);
       d._price = num(d['单价']);
+      // 分日GMV和直转
+      d._day2Gmv = num(d['DAY2-GMV']);
+      d._day3Gmv = num(d['DAY3-GMV']);
+      d._day2Direct = num(d['DAY2直转数']);
+      d._day3Direct = num(d['DAY3直转数']);
+      d._day2DirectRate = num(d['DAY2直转率']);
+      d._day3DirectRate = num(d['DAY3直转率']);
+      // 预约
+      d._d1BookCount = num(d['DAY1预约数']);
+      d._d2BookCount = num(d['DAY2预约数']);
+      d._d3BookCount = num(d['DAY3预约数']);
+      d._d1BookRate = num(d['DAY1预约率']);
+      d._d2BookRate = num(d['DAY2预约率']);
+      d._d3BookRate = num(d['DAY3预约率']);
+      // 追单拆分
+      d._followThis = num(d['本期追单数']);
+      d._followThisGmv = num(d['本期追单GMV']);
+      d._followThisRate = num(d['本期追单率']);
+      d._followPrev = num(d['往期追单数']);
+      d._followPrevGmv = num(d['往期追单GMV']);
+      d._followPrevRate = num(d['往期追单率']);
+      d._followRatio = num(d['追单占比']);
+      // 入群
+      d._joinCount = num(d['入群数']);
+      d._joinRate = num(d['入群率']);
+      // 回访
+      d._callbackCount = num(d['回访回复数']);
+      d._callbackRate = num(d['回访回复率']);
+      // 到课转化率、30分钟到课率
+      d._attendConvRate = num(d['到课-直播转化率']);
+      d._d1Rate30 = num(d['D1-30分钟到课率']);
+      d._d2Rate30 = num(d['D2-30分钟到课率']);
+      d._d3Rate30 = num(d['D3-30分钟到课率']);
+      // 其他维度
+      d._freshness = d['例子新鲜度'] || '';
+      d._profile2 = d['例子画像二级'] || '';
+      d._convCycle = d['转化周期'] || '';
+      d._liveVersion = d['大课直播版本'] || '';
     });
 
     // 预处理报单数据
@@ -166,13 +206,41 @@
       const m = d._month;
       if (!m) return;
       if (!map[m]) map[m] = { month: m, gmv: 0, gmvNet: 0, leads: 0, totalConv: 0, directConv: 0, followConv: 0,
-        d1Sum: 0, d2Sum: 0, d3Sum: 0, d1Count: 0, d2Count: 0, d3Count: 0, refundSum: 0, refundCount: 0, count: 0 };
+        d1Sum: 0, d2Sum: 0, d3Sum: 0, d1Count: 0, d2Count: 0, d3Count: 0, refundSum: 0, refundCount: 0, refundGmv: 0,
+        day2Gmv: 0, day3Gmv: 0, day2Direct: 0, day3Direct: 0,
+        d1BookSum: 0, d2BookSum: 0, d3BookSum: 0, d1BookCount: 0, d2BookCount: 0, d3BookCount: 0,
+        followThis: 0, followThisGmv: 0, followPrev: 0, followPrevGmv: 0,
+        joinSum: 0, joinCount: 0, callbackSum: 0, callbackCount: 0, callbackN: 0,
+        attendConvSum: 0, attendConvN: 0,
+        d1Rate30Sum: 0, d2Rate30Sum: 0, d3Rate30Sum: 0, rate30N: 0,
+        count: 0 };
       const o = map[m];
       o.gmv += d._gmv; o.gmvNet += d._gmvNet; o.leads += d._leads;
       o.totalConv += d._conv; o.directConv += d._directConv; o.followConv += d._followConv;
       o.d1Sum += d._d1Rate * d._leads; o.d2Sum += d._d2Rate * d._leads; o.d3Sum += d._d3Rate * d._leads;
       o.d1Count += d._d1Count; o.d2Count += d._d2Count; o.d3Count += d._d3Count;
-      o.refundSum += d._refundRate * d._leads; o.refundCount += d._refundCount;
+      o.refundSum += d._refundRate * d._leads; o.refundCount += d._refundCount; o.refundGmv += d._refundGmv;
+      // 分日
+      o.day2Gmv += d._day2Gmv; o.day3Gmv += d._day3Gmv;
+      o.day2Direct += d._day2Direct; o.day3Direct += d._day3Direct;
+      // 预约
+      o.d1BookSum += d._d1BookRate * d._leads; o.d2BookSum += d._d2BookRate * d._leads; o.d3BookSum += d._d3BookRate * d._leads;
+      o.d1BookCount += d._d1BookCount; o.d2BookCount += d._d2BookCount; o.d3BookCount += d._d3BookCount;
+      // 追单拆分
+      o.followThis += d._followThis; o.followThisGmv += d._followThisGmv;
+      o.followPrev += d._followPrev; o.followPrevGmv += d._followPrevGmv;
+      // 入群
+      o.joinCount += d._joinCount; o.joinSum += d._joinRate * d._leads;
+      // 回访
+      if (d._callbackRate > 0) { o.callbackSum += d._callbackRate; o.callbackN++; }
+      o.callbackCount += d._callbackCount;
+      // 到课转化率
+      if (d._attendConvRate > 0) { o.attendConvSum += d._attendConvRate; o.attendConvN++; }
+      // 30分钟到课率
+      if (d._d1Rate30 > 0 || d._d2Rate30 > 0 || d._d3Rate30 > 0) {
+        o.d1Rate30Sum += d._d1Rate30 * d._leads; o.d2Rate30Sum += d._d2Rate30 * d._leads; o.d3Rate30Sum += d._d3Rate30 * d._leads;
+        o.rate30N += d._leads;
+      }
       o.count++;
     });
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).map(o => ({
@@ -183,6 +251,15 @@
       d1Rate: o.leads > 0 ? o.d1Sum / o.leads : 0,
       d2Rate: o.leads > 0 ? o.d2Sum / o.leads : 0,
       d3Rate: o.leads > 0 ? o.d3Sum / o.leads : 0,
+      d1BookRate: o.leads > 0 ? o.d1BookSum / o.leads : 0,
+      d2BookRate: o.leads > 0 ? o.d2BookSum / o.leads : 0,
+      d3BookRate: o.leads > 0 ? o.d3BookSum / o.leads : 0,
+      joinRate: o.leads > 0 ? o.joinSum / o.leads : 0,
+      callbackRate: o.callbackN > 0 ? o.callbackSum / o.callbackN : 0,
+      attendConvRate: o.attendConvN > 0 ? o.attendConvSum / o.attendConvN : 0,
+      d1Rate30: o.rate30N > 0 ? o.d1Rate30Sum / o.rate30N : 0,
+      d2Rate30: o.rate30N > 0 ? o.d2Rate30Sum / o.rate30N : 0,
+      d3Rate30: o.rate30N > 0 ? o.d3Rate30Sum / o.rate30N : 0,
       leadValue: o.leads > 0 ? o.gmv / o.leads : 0,
       arpu: o.totalConv > 0 ? o.gmvNet / o.totalConv : 0,
       refundRate: o.leads > 0 ? o.refundSum / o.leads : 0
@@ -357,6 +434,7 @@
         Charts.renderAttendTrend(monthlyAgg);
         Charts.renderSkuBar(monthlyAgg, convData);
         Charts.renderLeadValue(monthlyAgg);
+        Charts.renderRefundTrend(monthlyAgg);
         renderAnalysis(monthlyAgg, convData);
         break;
 
@@ -365,6 +443,9 @@
         Charts.renderConvPie(monthlyAgg);
         Charts.renderProfileBar(convData);
         Charts.renderPeriodTrend(convData);
+        Charts.renderDayCompare(monthlyAgg);
+        Charts.renderFollowStructure(monthlyAgg);
+        Charts.renderFullFunnel(monthlyAgg);
         break;
 
       case 'team':
@@ -380,6 +461,17 @@
         Charts.renderOrderPie(ordersFiltered);
         Charts.renderOrderTrend(ordersFiltered);
         orderTable.setData(ordersFiltered);
+        break;
+
+      case 'deep':
+        Charts.renderJoinRate(monthlyAgg);
+        Charts.renderCallback(monthlyAgg);
+        Charts.renderAttendConv(monthlyAgg);
+        Charts.render30minAttend(monthlyAgg);
+        Charts.renderFreshness(convData);
+        Charts.renderProfile2(convData);
+        Charts.renderConvCycle(convData);
+        Charts.renderLiveVersion(convData);
         break;
 
       case 'detail':

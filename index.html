@@ -55,6 +55,7 @@
   <div class="nav-item" data-view="team"><span class="nav-icon">👥</span>团队分析</div>
   <div class="nav-section">数据查看</div>
   <div class="nav-item" data-view="orders"><span class="nav-icon">📋</span>报单明细</div>
+  <div class="nav-item" data-view="deep"><span class="nav-icon">🔬</span>深度分析</div>
   <div class="nav-item" data-view="detail"><span class="nav-icon">📁</span>数据明细</div>
 </nav>
 
@@ -96,6 +97,10 @@
         <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--orange)"></span>例子价值 & 例子数</div></div>
         <div class="chart-container" id="chartLeadValue"></div>
       </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--red)"></span>退款率 & 退款金额趋势</div></div>
+        <div class="chart-container" id="chartRefund"></div>
+      </div>
     </div>
     <div class="analysis-card">
       <h3><span class="icon">✦</span> 智能分析总结</h3>
@@ -121,6 +126,18 @@
       <div class="chart-card full">
         <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--purple)"></span>按期数转化率趋势</div></div>
         <div class="chart-container" id="chartPeriodTrend"></div>
+      </div>
+      <div class="chart-card full">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--orange)"></span>D2 vs D3 分日转化对比</div></div>
+        <div class="chart-container" id="chartDayCompare"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--cyan)"></span>追单结构趋势（本期 vs 往期）</div></div>
+        <div class="chart-container" id="chartFollowStructure"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--blue)"></span>完整漏斗：预约→到课→转化</div></div>
+        <div class="chart-container tall" id="chartFullFunnel"></div>
       </div>
     </div>
   </div>
@@ -184,6 +201,44 @@
       </div>
       <div class="table-wrap"><table id="orderTable"><thead><tr></tr></thead><tbody></tbody></table></div>
       <div class="table-footer"><span class="page-info" id="orderPageInfo"></span><div class="page-btns" id="orderPageBtns"></div></div>
+    </div>
+  </div>
+
+  <!-- VIEW: 深度分析 -->
+  <div class="view" id="view-deep">
+    <div class="chart-grid">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--cyan)"></span>入群率月度趋势</div></div>
+        <div class="chart-container" id="chartJoinRate"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--green)"></span>回访回复率趋势</div></div>
+        <div class="chart-container" id="chartCallback"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--blue)"></span>到课→直播转化率（直播质量）</div></div>
+        <div class="chart-container" id="chartAttendConv"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--purple)"></span>30分钟到课率 vs 全程到课率</div></div>
+        <div class="chart-container" id="chart30minAttend"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--orange)"></span>例子新鲜度转化率对比</div></div>
+        <div class="chart-container" id="chartFreshness"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--green)"></span>二级画像转化率对比</div></div>
+        <div class="chart-container" id="chartProfile2"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--cyan)"></span>转化周期分布</div></div>
+        <div class="chart-container" id="chartConvCycle"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title"><span class="dot" style="background:var(--blue)"></span>直播版本转化率对比</div></div>
+        <div class="chart-container" id="chartLiveVersion"></div>
+      </div>
     </div>
   </div>
 

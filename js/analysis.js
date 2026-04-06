@@ -16,6 +16,8 @@ const Analysis = {
     items.push(this._skuComparison(rawData));
     items.push(this._attendance(monthlyAgg));
     items.push(this._refund(monthlyAgg));
+    items.push(this._followStructure(monthlyAgg));
+    items.push(this._joinAndCallback(monthlyAgg));
 
     return items.filter(Boolean);
   },
@@ -187,12 +189,64 @@ const Analysis = {
     const avgRefund = withRefund.reduce((s, m) => s + m.refundRate, 0) / withRefund.length;
     const maxRefund = withRefund.reduce((a, b) => a.refundRate > b.refundRate ? a : b);
     const last = months[months.length - 1];
+    const totalRefundGmv = months.reduce((s, m) => s + (m.refundGmv || 0), 0);
+
+    // 退款率环比
+    const prev = months.length >= 2 ? months[months.length - 2] : null;
+    let refundTrend = '';
+    if (prev && prev.refundRate > 0) {
+      const chg = ((last.refundRate - prev.refundRate) / prev.refundRate * 100);
+      if (Math.abs(chg) > 50) refundTrend = `环比${chg > 0 ? '上升' : '下降'} <strong>${Math.abs(chg).toFixed(0)}%</strong>，波动较大。`;
+    }
 
     return {
       type: last.refundRate > avgRefund * 1.5 ? 'bad' : (last.refundRate > avgRefund ? 'warn' : 'good'),
       label: '退款分析',
-      text: `平均开营前退款率 <strong>${Fmt.pct(avgRefund)}</strong>，最高出现在 <strong>${this._monthLabel(maxRefund.month)} (${Fmt.pct(maxRefund.refundRate)})</strong>。${last.refundRate > avgRefund * 1.5 ? '当前月退款率偏高，需关注。' : '退款率在正常范围内。'}`
+      text: `平均开营前退款率 <strong>${Fmt.pct(avgRefund)}</strong>，最高出现在 <strong>${this._monthLabel(maxRefund.month)} (${Fmt.pct(maxRefund.refundRate)})</strong>。累计退款GMV <strong>${Fmt.money(totalRefundGmv)}</strong>。${refundTrend}${last.refundRate > avgRefund * 1.5 ? '当前月退款率偏高，需关注产品质量和用户预期管理。' : '退款率在正常范围内。'}`
     };
+  },
+
+  _followStructure(months) {
+    const withFollow = months.filter(m => m.followThis > 0 || m.followPrev > 0);
+    if (withFollow.length < 2) return null;
+
+    const totalThis = withFollow.reduce((s, m) => s + m.followThis, 0);
+    const totalPrev = withFollow.reduce((s, m) => s + m.followPrev, 0);
+    const total = totalThis + totalPrev;
+    if (total === 0) return null;
+
+    const thisPct = (totalThis / total * 100).toFixed(0);
+    const prevPct = (totalPrev / total * 100).toFixed(0);
+
+    const last = withFollow[withFollow.length - 1];
+    const lastTotal = last.followThis + last.followPrev;
+    const lastPrevPct = lastTotal > 0 ? (last.followPrev / lastTotal * 100).toFixed(0) : 0;
+
+    return {
+      type: lastPrevPct > 40 ? 'warn' : 'info',
+      label: '追单结构',
+      text: `本期追单占 <strong>${thisPct}%</strong>，往期追单占 <strong>${prevPct}%</strong>。最近月份往期追单占比 <strong>${lastPrevPct}%</strong>。${lastPrevPct > 40 ? '往期追单占比偏高，说明当期转化力度不足，需加强直播间即时转化。' : '追单结构健康，以本期追单为主。'}`
+    };
+  },
+
+  _joinAndCallback(months) {
+    const withJoin = months.filter(m => m.joinRate > 0);
+    const withCallback = months.filter(m => m.callbackRate > 0);
+
+    const parts = [];
+    if (withJoin.length >= 2) {
+      const avgJoin = withJoin.reduce((s, m) => s + m.joinRate, 0) / withJoin.length;
+      const last = withJoin[withJoin.length - 1];
+      parts.push(`入群率均值 <strong>${Fmt.pct(avgJoin)}</strong>，最近 <strong>${Fmt.pct(last.joinRate)}</strong>${last.joinRate < avgJoin * 0.8 ? '（偏低，需关注）' : ''}`);
+    }
+    if (withCallback.length >= 2) {
+      const avgCb = withCallback.reduce((s, m) => s + m.callbackRate, 0) / withCallback.length;
+      const last = withCallback[withCallback.length - 1];
+      parts.push(`回访回复率均值 <strong>${Fmt.pct(avgCb)}</strong>，最近 <strong>${Fmt.pct(last.callbackRate)}</strong>`);
+    }
+
+    if (parts.length === 0) return null;
+    return { type: 'info', label: '入群 & 回访', text: parts.join('。') + '。' };
   },
 
   _monthLabel(m) {

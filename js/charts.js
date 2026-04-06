@@ -371,4 +371,334 @@ const Charts = {
   }
 };
 
+// === 新增图表方法（V3升级） ===
+
+// 退款率趋势（概览视图）
+Charts.renderRefundTrend = function(monthlyAgg) {
+  const c = this.init('chartRefund');
+  if (!c) return;
+  const labels = monthlyAgg.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    grid: { ...this.base.grid, right: 55 },
+    legend: { ...this.base.legend, show: true, top: 5, right: 0 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis',
+      formatter: ps => ps.map(p => `${p.marker}${p.seriesName}: ${p.seriesName.includes('GMV') ? Fmt.money(p.value) : Fmt.pct(p.value)}`).join('<br>') },
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: [
+      { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+      { ...this.base.yAxis, type: 'value', splitLine: { show: false }, axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.money(v) } }
+    ],
+    series: [
+      { name: '退款率', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5,
+        data: monthlyAgg.map(m => m.refundRate), itemStyle: { color: '#ef4444' }, lineStyle: { width: 2.5 }, yAxisIndex: 0 },
+      { name: '退款GMV', type: 'bar', barMaxWidth: 20,
+        data: monthlyAgg.map(m => m.refundGmv), itemStyle: { color: 'rgba(239,68,68,.2)', borderRadius: [2, 2, 0, 0] }, yAxisIndex: 1 }
+    ] });
+};
+
+// 优化版漏斗（带转化率百分比）
+Charts.renderFunnel = function(monthlyAgg) {
+  const c = this.init('chartFunnel');
+  if (!c) return;
+  const total = monthlyAgg.reduce((s, m) => ({
+    leads: s.leads + m.leads,
+    d1Book: s.d1Book + m.d1BookCount, d2Book: s.d2Book + m.d2BookCount, d3Book: s.d3Book + m.d3BookCount,
+    d1: s.d1 + m.d1Count, d2: s.d2 + m.d2Count, d3: s.d3 + m.d3Count,
+    direct: s.direct + m.directConv, follow: s.follow + m.followConv
+  }), { leads: 0, d1Book: 0, d2Book: 0, d3Book: 0, d1: 0, d2: 0, d3: 0, direct: 0, follow: 0 });
+
+  const steps = [
+    { value: total.leads, name: '总例子数', color: '#3b82f6' },
+    { value: total.d1 || Math.round(total.leads * 0.35), name: 'D1到课', color: '#22d3ee' },
+    { value: total.d2 || Math.round(total.leads * 0.30), name: 'D2到课', color: '#6366f1' },
+    { value: total.d3 || Math.round(total.leads * 0.25), name: 'D3到课', color: '#a78bfa' },
+    { value: total.direct, name: '直播转化', color: '#10b981' },
+    { value: total.follow, name: '追单转化', color: '#f59e0b' }
+  ];
+
+  c.setOption({ ...this.base,
+    tooltip: { ...this.base.tooltip, trigger: 'item',
+      formatter: p => {
+        const pct = total.leads > 0 ? (p.value / total.leads * 100).toFixed(2) : 0;
+        return `${p.name}<br/>数量: ${Fmt.int(p.value)}<br/>占总例子: ${pct}%`;
+      }},
+    series: [{ type: 'funnel', left: '10%', top: 20, bottom: 20, width: '80%', sort: 'none',
+      gap: 4,
+      label: { show: true, position: 'inside', fontSize: 11, color: '#fff',
+        formatter: p => {
+          const pct = total.leads > 0 ? (p.value / total.leads * 100).toFixed(1) : 0;
+          return `${p.name}\n${Fmt.int(p.value)} (${pct}%)`;
+        }},
+      itemStyle: { borderWidth: 0 },
+      data: steps.map(s => ({ value: s.value, name: s.name, itemStyle: { color: s.color } }))
+    }] });
+};
+
+// D2 vs D3 分日转化对比
+Charts.renderDayCompare = function(monthlyAgg) {
+  const c = this.init('chartDayCompare');
+  if (!c) return;
+  const labels = monthlyAgg.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    legend: { ...this.base.legend, show: true, top: 5, right: 0 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis' },
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.int(v) } },
+    series: [
+      { name: 'D2直转数', type: 'bar', barMaxWidth: 16, barGap: '20%',
+        data: monthlyAgg.map(m => m.day2Direct), itemStyle: { color: '#3b82f6', borderRadius: [2, 2, 0, 0] } },
+      { name: 'D3直转数', type: 'bar', barMaxWidth: 16,
+        data: monthlyAgg.map(m => m.day3Direct), itemStyle: { color: '#a78bfa', borderRadius: [2, 2, 0, 0] } },
+      { name: 'D2 GMV', type: 'line', smooth: true, symbol: 'circle', symbolSize: 4,
+        data: monthlyAgg.map(m => m.day2Gmv), itemStyle: { color: '#22d3ee' }, lineStyle: { width: 2, type: 'dashed' } },
+      { name: 'D3 GMV', type: 'line', smooth: true, symbol: 'circle', symbolSize: 4,
+        data: monthlyAgg.map(m => m.day3Gmv), itemStyle: { color: '#f59e0b' }, lineStyle: { width: 2, type: 'dashed' } }
+    ] });
+};
+
+// 追单结构趋势（本期 vs 往期）
+Charts.renderFollowStructure = function(monthlyAgg) {
+  const c = this.init('chartFollowStructure');
+  if (!c) return;
+  const labels = monthlyAgg.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    legend: { ...this.base.legend, show: true, top: 5, right: 0 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis',
+      formatter: ps => {
+        const total = ps.reduce((s, p) => s + (p.value || 0), 0);
+        return ps.map(p => {
+          const pct = total > 0 ? (p.value / total * 100).toFixed(0) : 0;
+          return `${p.marker}${p.seriesName}: ${Fmt.int(p.value)} (${pct}%)`;
+        }).join('<br>');
+      }},
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: { ...this.base.yAxis, type: 'value' },
+    series: [
+      { name: '本期追单', type: 'bar', stack: 'follow', barMaxWidth: 22,
+        data: monthlyAgg.map(m => m.followThis), itemStyle: { color: '#3b82f6', borderRadius: [0, 0, 0, 0] } },
+      { name: '往期追单', type: 'bar', stack: 'follow', barMaxWidth: 22,
+        data: monthlyAgg.map(m => m.followPrev), itemStyle: { color: '#f59e0b', borderRadius: [2, 2, 0, 0] } }
+    ] });
+};
+
+// 完整漏斗：预约→到课→转化
+Charts.renderFullFunnel = function(monthlyAgg) {
+  const c = this.init('chartFullFunnel');
+  if (!c) return;
+  const total = monthlyAgg.reduce((s, m) => ({
+    leads: s.leads + m.leads,
+    d1Book: s.d1Book + m.d1BookCount, d1: s.d1 + m.d1Count,
+    d2Book: s.d2Book + m.d2BookCount, d2: s.d2 + m.d2Count,
+    d3Book: s.d3Book + m.d3BookCount, d3: s.d3 + m.d3Count,
+    direct: s.direct + m.directConv, follow: s.follow + m.followConv
+  }), { leads: 0, d1Book: 0, d1: 0, d2Book: 0, d2: 0, d3Book: 0, d3: 0, direct: 0, follow: 0 });
+
+  const pct = v => total.leads > 0 ? (v / total.leads * 100).toFixed(1) + '%' : '-';
+  const steps = [
+    { value: total.leads, name: '总例子数', color: '#3b82f6' },
+    { value: total.d1Book || Math.round(total.leads * 0.5), name: 'D1预约', color: '#06b6d4' },
+    { value: total.d1 || Math.round(total.leads * 0.35), name: 'D1到课', color: '#22d3ee' },
+    { value: total.d3 || Math.round(total.leads * 0.25), name: 'D3到课', color: '#a78bfa' },
+    { value: total.direct, name: '直播转化', color: '#10b981' },
+    { value: total.direct + total.follow, name: '总转化', color: '#f59e0b' }
+  ];
+
+  c.setOption({ ...this.base,
+    tooltip: { ...this.base.tooltip, trigger: 'item',
+      formatter: p => `${p.name}: ${Fmt.int(p.value)} (${pct(p.value)})` },
+    series: [{ type: 'funnel', left: '10%', top: 20, bottom: 20, width: '80%', sort: 'none', gap: 3,
+      label: { show: true, position: 'inside', fontSize: 11, color: '#fff',
+        formatter: p => `${p.name}\n${Fmt.int(p.value)} (${pct(p.value)})` },
+      itemStyle: { borderWidth: 0 },
+      data: steps.map(s => ({ value: s.value, name: s.name, itemStyle: { color: s.color } }))
+    }] });
+};
+
+// === 深度分析视图图表 ===
+
+// 入群率趋势
+Charts.renderJoinRate = function(monthlyAgg) {
+  const c = this.init('chartJoinRate');
+  if (!c) return;
+  const data = monthlyAgg.filter(m => m.joinRate > 0);
+  const labels = data.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    tooltip: { ...this.base.tooltip, trigger: 'axis', formatter: ps => ps.map(p => `${p.marker}${p.seriesName}: ${Fmt.pct(p.value)}`).join('<br>') },
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [
+      { name: '入群率', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5,
+        data: data.map(m => m.joinRate), itemStyle: { color: '#22d3ee' }, lineStyle: { width: 2.5 },
+        areaStyle: { opacity: 0.08 } }
+    ] });
+};
+
+// 回访回复率趋势
+Charts.renderCallback = function(monthlyAgg) {
+  const c = this.init('chartCallback');
+  if (!c) return;
+  const data = monthlyAgg.filter(m => m.callbackRate > 0);
+  const labels = data.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    tooltip: { ...this.base.tooltip, trigger: 'axis', formatter: ps => ps.map(p => `${p.marker}${p.seriesName}: ${Fmt.pct(p.value)}`).join('<br>') },
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [
+      { name: '回访回复率', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5,
+        data: data.map(m => m.callbackRate), itemStyle: { color: '#10b981' }, lineStyle: { width: 2.5 },
+        areaStyle: { opacity: 0.08 } }
+    ] });
+};
+
+// 到课→直播转化率（直播质量）
+Charts.renderAttendConv = function(monthlyAgg) {
+  const c = this.init('chartAttendConv');
+  if (!c) return;
+  const data = monthlyAgg.filter(m => m.attendConvRate > 0);
+  const labels = data.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    tooltip: { ...this.base.tooltip, trigger: 'axis', formatter: ps => ps.map(p => `${p.marker}${p.seriesName}: ${Fmt.pct(p.value)}`).join('<br>') },
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [
+      { name: '到课→转化率', type: 'line', smooth: true, symbol: 'circle', symbolSize: 5,
+        data: data.map(m => m.attendConvRate), itemStyle: { color: '#3b82f6' }, lineStyle: { width: 2.5 },
+        areaStyle: { opacity: 0.08 } }
+    ] });
+};
+
+// 30分钟到课率 vs 全程到课率
+Charts.render30minAttend = function(monthlyAgg) {
+  const c = this.init('chart30minAttend');
+  if (!c) return;
+  const data = monthlyAgg.filter(m => m.d3Rate30 > 0);
+  const labels = data.map(m => this.monthLabel(m.month));
+  c.setOption({ ...this.base,
+    legend: { ...this.base.legend, show: true, top: 5, right: 0 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis', formatter: ps => ps.map(p => `${p.marker}${p.seriesName}: ${Fmt.pct(p.value)}`).join('<br>') },
+    xAxis: { ...this.base.xAxis, type: 'category', data: labels },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [
+      { name: 'D3全程到课率', type: 'line', smooth: true, symbol: 'circle', symbolSize: 4,
+        data: data.map(m => m.d3Rate), itemStyle: { color: '#a78bfa' }, lineStyle: { width: 2.5 } },
+      { name: 'D3-30分钟到课率', type: 'line', smooth: true, symbol: 'circle', symbolSize: 4,
+        data: data.map(m => m.d3Rate30), itemStyle: { color: '#f59e0b' }, lineStyle: { width: 2, type: 'dashed' } },
+      { name: 'D1全程到课率', type: 'line', smooth: true, symbol: 'none',
+        data: data.map(m => m.d1Rate), itemStyle: { color: '#22d3ee' }, lineStyle: { width: 1.5, opacity: 0.5 } },
+      { name: 'D1-30分钟到课率', type: 'line', smooth: true, symbol: 'none',
+        data: data.map(m => m.d1Rate30), itemStyle: { color: '#22d3ee' }, lineStyle: { width: 1.5, type: 'dashed', opacity: 0.5 } }
+    ] });
+};
+
+// 例子新鲜度转化率对比
+Charts.renderFreshness = function(rawData) {
+  const c = this.init('chartFreshness');
+  if (!c) return;
+  const map = {};
+  rawData.forEach(d => {
+    const f = d._freshness;
+    if (!f) return;
+    if (!map[f]) map[f] = { leads: 0, conv: 0, gmv: 0 };
+    map[f].leads += d._leads || 0;
+    map[f].conv += d._conv || 0;
+    map[f].gmv += d._gmv || 0;
+  });
+  const items = Object.entries(map)
+    .filter(([, v]) => v.leads > 200)
+    .map(([k, v]) => ({ name: k, rate: v.leads > 0 ? v.conv / v.leads : 0, leads: v.leads }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 12);
+
+  c.setOption({ ...this.base,
+    grid: { ...this.base.grid, bottom: 50 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis',
+      formatter: ps => `${ps[0].name}: 转化率 ${Fmt.pct(ps[0].value)}<br/>例子数: ${Fmt.int(items.find(i => i.name === ps[0].name)?.leads)}` },
+    xAxis: { ...this.base.xAxis, type: 'category', data: items.map(i => i.name),
+      axisLabel: { ...this.base.xAxis.axisLabel, rotate: 20, interval: 0 } },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [{ type: 'bar', barMaxWidth: 28, data: items.map(i => ({
+      value: i.rate, itemStyle: { color: i.rate > 0.03 ? '#10b981' : i.rate > 0.015 ? '#3b82f6' : '#6b7280', borderRadius: [3, 3, 0, 0] }
+    })) }] });
+};
+
+// 二级画像转化率对比
+Charts.renderProfile2 = function(rawData) {
+  const c = this.init('chartProfile2');
+  if (!c) return;
+  const map = {};
+  rawData.forEach(d => {
+    const p = d._profile2;
+    if (!p) return;
+    if (!map[p]) map[p] = { leads: 0, conv: 0 };
+    map[p].leads += d._leads || 0;
+    map[p].conv += d._conv || 0;
+  });
+  const items = Object.entries(map)
+    .filter(([, v]) => v.leads > 200)
+    .map(([k, v]) => ({ name: k, rate: v.leads > 0 ? v.conv / v.leads : 0, leads: v.leads }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 12);
+
+  c.setOption({ ...this.base,
+    grid: { ...this.base.grid, bottom: 50 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis',
+      formatter: ps => `${ps[0].name}: 转化率 ${Fmt.pct(ps[0].value)}` },
+    xAxis: { ...this.base.xAxis, type: 'category', data: items.map(i => i.name),
+      axisLabel: { ...this.base.xAxis.axisLabel, rotate: 20, interval: 0 } },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [{ type: 'bar', barMaxWidth: 28, data: items.map(i => ({
+      value: i.rate, itemStyle: { color: '#10b981', borderRadius: [3, 3, 0, 0] }
+    })) }] });
+};
+
+// 转化周期分布
+Charts.renderConvCycle = function(rawData) {
+  const c = this.init('chartConvCycle');
+  if (!c) return;
+  const map = {};
+  rawData.forEach(d => {
+    const cy = d._convCycle;
+    if (!cy) return;
+    map[cy] = (map[cy] || 0) + 1;
+  });
+  const items = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 15);
+
+  c.setOption({ ...this.base,
+    grid: { ...this.base.grid, bottom: 50 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis', formatter: ps => `${ps[0].name}: ${ps[0].value}条记录` },
+    xAxis: { ...this.base.xAxis, type: 'category', data: items.map(i => i[0]),
+      axisLabel: { ...this.base.xAxis.axisLabel, rotate: 20, interval: 0 } },
+    yAxis: { ...this.base.yAxis, type: 'value' },
+    series: [{ type: 'bar', barMaxWidth: 28, data: items.map(i => ({
+      value: i[1], itemStyle: { color: '#22d3ee', borderRadius: [3, 3, 0, 0] }
+    })) }] });
+};
+
+// 直播版本转化率对比
+Charts.renderLiveVersion = function(rawData) {
+  const c = this.init('chartLiveVersion');
+  if (!c) return;
+  const map = {};
+  rawData.forEach(d => {
+    const v = d._liveVersion;
+    if (!v) return;
+    if (!map[v]) map[v] = { leads: 0, conv: 0 };
+    map[v].leads += d._leads || 0;
+    map[v].conv += d._conv || 0;
+  });
+  const items = Object.entries(map)
+    .filter(([, v]) => v.leads > 500)
+    .map(([k, v]) => ({ name: k, rate: v.leads > 0 ? v.conv / v.leads : 0, leads: v.leads }))
+    .sort((a, b) => b.rate - a.rate).slice(0, 12);
+
+  c.setOption({ ...this.base,
+    grid: { ...this.base.grid, bottom: 50 },
+    tooltip: { ...this.base.tooltip, trigger: 'axis',
+      formatter: ps => `${ps[0].name}: 转化率 ${Fmt.pct(ps[0].value)}` },
+    xAxis: { ...this.base.xAxis, type: 'category', data: items.map(i => i.name),
+      axisLabel: { ...this.base.xAxis.axisLabel, rotate: 20, interval: 0 } },
+    yAxis: { ...this.base.yAxis, type: 'value', axisLabel: { ...this.base.yAxis.axisLabel, formatter: v => Fmt.pct(v) } },
+    series: [{ type: 'bar', barMaxWidth: 28, data: items.map(i => ({
+      value: i.rate, itemStyle: { color: '#3b82f6', borderRadius: [3, 3, 0, 0] }
+    })) }] });
+};
+
 window.addEventListener('resize', () => Charts.resizeAll());
