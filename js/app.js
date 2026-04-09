@@ -21,7 +21,22 @@
       ['meta', 'data/meta.json']
     ];
     const results = await Promise.all(files.map(([, url]) => fetch(url).then(r => r.json()).catch(() => [])));
-    files.forEach(([key], i) => DATA[key] = results[i]);
+    // Convert columnar {c,r} format to array of objects
+    function expandColumnar(d) {
+      if (d && d.c && d.r) {
+        const cols = d.c;
+        return d.r.map(row => {
+          const obj = {};
+          for (let i = 0; i < cols.length; i++) obj[cols[i]] = i < row.length ? row[i] : null;
+          return obj;
+        });
+      }
+      return Array.isArray(d) ? d : [];
+    }
+    files.forEach(([key], i) => {
+      const raw = results[i];
+      DATA[key] = (key === 'meta') ? raw : expandColumnar(raw);
+    });
 
     // 预处理转化数据：提取常用字段到标准化属性
     DATA.conversion.forEach(d => {
