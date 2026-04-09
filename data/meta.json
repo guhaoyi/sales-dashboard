@@ -1,0 +1,30 @@
+{
+  "updatedAt": "2026-04-06T10:44:07.967Z",
+  "tables": {
+    "转化数据总表": {
+      "file": "conversion.json",
+      "count": 7214,
+      "sizeKB": 22855
+    },
+    "销售报单表": {
+      "file": "orders.json",
+      "count": 16797,
+      "sizeKB": 17923.1
+    },
+    "分区运营表": {
+      "file": "weekly-ops.json",
+      "count": 444,
+      "sizeKB": 785.3
+    },
+    "成员联系统计": {
+      "file": "member-contact.json",
+      "count": 970,
+      "sizeKB": 376.4
+    },
+    "成员服务统计": {
+      "file": "member-service.json",
+      "count": 986,
+      "sizeKB": 280.4
+    }
+  }
+}
